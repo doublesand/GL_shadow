@@ -57,7 +57,7 @@ namespace Camera  //设置照相机系数
 		return c;
 	}
 
-	mat4 perspective(const GLfloat fovy, const GLfloat aspect,  //透视投影
+	mat4 perspective(const GLfloat fovy, const GLfloat aspect,  //透视投影变换
 		const GLfloat zNear, const GLfloat zFar)
 	{
 		GLfloat top = tan(fovy*DegreesToRadians / 2) * zNear;
@@ -73,7 +73,7 @@ namespace Camera  //设置照相机系数
 		return c;
 	}
 
-	mat4 lookAt(const vec4& eye, const vec4& at, const vec4& up)
+	mat4 lookAt(const vec4& eye, const vec4& at, const vec4& up)  //观察矩阵变换
 	{
 		vec4 n = normalize(eye - at);
 		vec4 u = normalize(vec4(cross(up, n), 0.0));
@@ -85,33 +85,36 @@ namespace Camera  //设置照相机系数
 	}
 }
 
-// OpenGL initialization
+// 初始函数
 void init()
 {
-	// Clear Color Buffer
+	// 清除背景颜色，由于阴影是黑色的，我们这里将其设置为灰色
 	glClearColor(0.9f, 0.9f, 0.9f, 0.0f);
-	programID = InitShader("vshader.glsl", "fshader.glsl");
-	vPositionID = glGetAttribLocation(programID, "vPosition");
+	programID = InitShader("vshader.glsl", "fshader.glsl");  //引入顶点着色器和片元着色器
 
+	vPositionID = glGetAttribLocation(programID, "vPosition");  //传入的顶点标识
+
+	//分别得到模型矩阵、观察矩阵、投影矩阵、颜色的索引
 	modelMatrixID = glGetUniformLocation(programID, "modelMatrix");
 	viewMatrixID = glGetUniformLocation(programID, "viewMatrix");
 	projMatrixID = glGetUniformLocation(programID, "projMatrix");
 	fColorID = glGetUniformLocation(programID, "fColor");
 
-	// Vertex Array Object
+	// 创建顶点数组对象并绑定
 	glGenVertexArrays(1, &vertexArrayID);
 	glBindVertexArray(vertexArrayID);
 
-	// Vertex Buffer Object
+	// 创建顶点缓存对象并绑定
 	glGenBuffers(1, &vertexBufferID);
 	glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(points), points, GL_STATIC_DRAW);
 
+	//深度测试
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 }
 
-// Rendering
+// 着色渲染
 void display()
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -126,8 +129,8 @@ void display()
 
 	Camera::viewMatrix = Camera::lookAt(eye, at, up);
 	Camera::projMatrix = Camera::ortho(l, r, b, t, n, f);
-	glUniformMatrix4fv(viewMatrixID, 1, GL_TRUE, &Camera::viewMatrix[0][0]);
-	glUniformMatrix4fv(projMatrixID, 1, GL_TRUE, &Camera::projMatrix[0][0]);
+	glUniformMatrix4fv(viewMatrixID, 1, GL_TRUE, Camera::viewMatrix);
+	glUniformMatrix4fv(projMatrixID, 1, GL_TRUE, Camera::projMatrix);
 
 	glEnableVertexAttribArray(vPositionID);
 	glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
@@ -140,9 +143,9 @@ void display()
 		(void*)0
 	);
 
-	// 原始三角形绘制
+	// 绘制原始三角形，利用传进去的三个点
 	Camera::modelMatrix = RotateY(rotationAngle);
-	glUniformMatrix4fv(modelMatrixID, 1, GL_TRUE, &Camera::modelMatrix[0][0]);
+	glUniformMatrix4fv(modelMatrixID, 1, GL_TRUE, Camera::modelMatrix);
 	glUniform4fv(fColorID, 1, red);
 	glDrawArrays(GL_TRIANGLES, 0, 3);
 
@@ -150,15 +153,15 @@ void display()
 	float lx = lightPos[0];
 	float ly = lightPos[1];
 	float lz = lightPos[2];
-	// 根据光源位置，计算阴影投影矩阵
+	// 根据光源位置，计算阴影投影矩阵,你会发现右下角的一个元素居然不是1！
 	mat4 shadowProjMatrix(-ly, 0.0, 0.0, 0.0,
 		lx, 0.0, lz, 1.0,
 		0.0, 0.0, -ly, 0.0,
 		0.0, 0.0, 0.0, -ly);
 	// 可以通过交互控制绕y轴旋转角度
 	Camera::modelMatrix = shadowProjMatrix*RotateY(rotationAngle);
-
-	glUniformMatrix4fv(modelMatrixID, 1, GL_TRUE, &Camera::modelMatrix[0][0]);
+	//再次利用那三个点绘制阴影
+	glUniformMatrix4fv(modelMatrixID, 1, GL_TRUE, Camera::modelMatrix);
 	glUniform4fv(fColorID, 1, black);
 	glDrawArrays(GL_TRIANGLES, 0, 3);
 
@@ -169,7 +172,7 @@ void display()
 	glutSwapBuffers();
 }
 
-// Reshape window
+// 重新绘制窗口
 void reshape(GLsizei w, GLsizei h)
 {
 	glViewport(0, 0, w, h);
@@ -183,10 +186,9 @@ void mouse(int button, int state, int x, int y)
 		lightPos[0] = x;
 		lightPos[1] = y;
 	}
-	return;
 }
 
-// Standard key presses
+// 键盘监听
 void keyboard(unsigned char key, int x, int y)
 {
 	switch (key)
@@ -232,12 +234,12 @@ int main(int argc, char **argv)
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
 	glutInitWindowSize(500, 500);
-	glutCreateWindow("OpenGL-Tutorial");
+	glutCreateWindow("阴影");
 
 	glewInit();
 	init();
 
-	// Callback functions
+	// 回调函数
 	glutDisplayFunc(display);
 	glutReshapeFunc(reshape);
 	glutMouseFunc(mouse);
