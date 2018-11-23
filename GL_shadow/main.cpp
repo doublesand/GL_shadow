@@ -241,7 +241,7 @@ int main(int argc, char **argv)
 
 	// 回调函数
 	glutDisplayFunc(display);
-	glutReshapeFunc(reshape);
+	glutReshapeFunc(reshape); //检测窗口是否发生变化并进行重新绘制
 	glutMouseFunc(mouse);
 	glutKeyboardFunc(keyboard);
 	glutIdleFunc(idle);
